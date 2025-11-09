@@ -5,28 +5,48 @@ const { connect } = require('./db/database');
 const bot = require('./bot');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0'; // penting untuk Leapcell agar bisa diakses dari luar
 
 app.use(bodyParser.json());
 
-// Endpoint untuk webhook Telegram
-app.post('/telegram/webhook', bot.webhookCallback('/telegram/webhook'));
-
-// Health check (untuk tes)
-app.get('/', (req, res) => {
-  res.send('✅ Telegram bot (serverless mode) aktif');
-});
+// health check
+app.get('/', (req, res) => res.status(200).send('Bot is running ✅'));
 
 async function init() {
   await connect();
   console.log('Database connected');
 
-  // Set webhook ke Telegram (sekali saat deploy)
   if (process.env.WEBHOOK_URL) {
-    await bot.telegram.setWebhook(`${process.env.WEBHOOK_URL}/telegram/webhook`);
+    const webhookPath = '/telegram/webhook';
+    const webhookFull = `${process.env.WEBHOOK_URL}${webhookPath}`;
+
+    // pastikan webhookCallback dipasang sebelum setWebhook
+    app.use(bot.webhookCallback(webhookPath));
+
+    // pastikan Telegram dapat respon cepat (200)
+    app.post(webhookPath, (req, res) => {
+      res.status(200).send('OK');
+    });
+
+    await bot.telegram.setWebhook(webhookFull);
     console.log('Webhook registered to Telegram');
+  } else {
+    await bot.launch();
+    console.log('Bot polling launched');
   }
+
+  // listen host:0.0.0.0 supaya Leapcell bisa akses
+  app.listen(PORT, HOST, () => {
+    console.log(`Server listening on http://${HOST}:${PORT}`);
+  });
 }
 
-init().catch(console.error);
+init().catch((err) => {
+  console.error('Initialization failed:', err);
+  process.exit(1);
+});
 
-module.exports = app;
+// Graceful shutdown
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
