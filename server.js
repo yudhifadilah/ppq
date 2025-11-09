@@ -5,28 +5,28 @@ const { connect } = require('./db/database');
 const bot = require('./bot');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 
+// Endpoint untuk webhook Telegram
+app.post('/telegram/webhook', bot.webhookCallback('/telegram/webhook'));
+
+// Health check (untuk tes)
+app.get('/', (req, res) => {
+  res.send('✅ Telegram bot (serverless mode) aktif');
+});
+
 async function init() {
   await connect();
-  const WEBHOOK_URL = process.env.WEBHOOK_URL;
-  if (!WEBHOOK_URL) throw new Error('WEBHOOK_URL is required for webhook mode');
-  const webhookPath = '/telegram/webhook';
-  const webhookUrl = WEBHOOK_URL.replace(/\/$/, '') + webhookPath;
-  await bot.telegram.setWebhook(webhookUrl);
-  app.use(bot.webhookCallback(webhookPath));
-  console.log('Webhook registered:', webhookUrl);
+  console.log('Database connected');
 
-  app.get('/', (req, res) => res.send('Bot is running ✅'));
-
-  app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-  });
+  // Set webhook ke Telegram (sekali saat deploy)
+  if (process.env.WEBHOOK_URL) {
+    await bot.telegram.setWebhook(`${process.env.WEBHOOK_URL}/telegram/webhook`);
+    console.log('Webhook registered to Telegram');
+  }
 }
 
-init().catch((err) => {
-  console.error('Initialization failed:', err);
-  process.exit(1);
-});
+init().catch(console.error);
+
+module.exports = app;
