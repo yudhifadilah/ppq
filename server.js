@@ -6,27 +6,37 @@ const bot = require('./bot');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';
 
 app.use(bodyParser.json());
+app.get('/', (req, res) => res.status(200).send('✅ Bot is running and healthy'));
 
 async function init() {
   await connect();
-  const WEBHOOK_URL = process.env.WEBHOOK_URL;
-  if (!WEBHOOK_URL) throw new Error('WEBHOOK_URL is required for webhook mode');
-  const webhookPath = '/telegram/webhook';
-  const webhookUrl = WEBHOOK_URL.replace(/\/$/, '') + webhookPath;
-  await bot.telegram.setWebhook(webhookUrl);
-  app.use(bot.webhookCallback(webhookPath));
-  console.log('Webhook registered:', webhookUrl);
+  console.log('🚀 Database connected');
 
-  app.get('/', (req, res) => res.send('Bot is running ✅'));
+  if (process.env.WEBHOOK_URL) {
+    const webhookPath = '/telegram/webhook';
+    const webhookFull = `${process.env.WEBHOOK_URL}${webhookPath}`;
 
-  app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
+    app.use(bot.webhookCallback(webhookPath));
+    await bot.telegram.setWebhook(webhookFull);
+
+    console.log('✅ Webhook registered to Telegram:', webhookFull);
+  } else {
+    await bot.launch();
+    console.log('🤖 Bot polling launched');
+  }
+
+  app.listen(PORT, HOST, () => {
+    console.log(`🌐 Server listening on http://${HOST}:${PORT}`);
   });
 }
 
 init().catch((err) => {
-  console.error('Initialization failed:', err);
+  console.error('❌ Initialization failed:', err);
   process.exit(1);
 });
+
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));

@@ -1,127 +1,147 @@
-const { Telegraf } = require('telegraf');
+// bot/index.js
+const { Telegraf, session } = require('telegraf');
 const userHandler = require('./handlers/userHandler');
 const adminHandler = require('./handlers/adminHandler');
 const uploadHandler = require('./handlers/uploadHandler');
 const fsmHandler = require('./handlers/fsmHandler');
-const { mainMenu } = require('./keyboards');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 if (!BOT_TOKEN) throw new Error('BOT_TOKEN required');
 const bot = new Telegraf(BOT_TOKEN);
 
-const ADMIN_IDS = (process.env.ADMIN_IDS || '').split(',').filter(Boolean).map(x => Number(x));
 
-bot.start(async (ctx) => userHandler.start(ctx));
+bot.use(session());
+// 🧑‍💼 List admin dari .env
+const ADMIN_IDS = (process.env.ADMIN_IDS || '')
+  .split(',')
+  .map((x) => x.trim())
+  .filter(Boolean);
 
-bot.command('lihat_produk', async (ctx) => userHandler.viewProducts(ctx));
+function isAdmin(ctx) {
+  return ADMIN_IDS.includes(String(ctx.from?.id));
+}
 
-bot.command('tracking', async (ctx) => userHandler.trackingStart(ctx));
+/* ===================================
+   👥 USER COMMANDS & MENU UTAMA
+=================================== */
 
-bot.command('upload', async (ctx) => ctx.reply('Silakan kirim foto bukti pembayaran dengan caption ID order (mis: ORD-12345)'));
-
-// Admin-only commands
-bot.command('admin', async (ctx) => {
-  if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('Hanya admin.');
-  return adminHandler.adminPanel(ctx);
-});
-
-bot.command('addproduct', async (ctx) => {
-  if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('Hanya admin.');
-  const args = ctx.message.text.split(' ').slice(1);
-  return adminHandler.addProductCmd(ctx, args);
-});
-
-bot.command('deleteproduct', async (ctx) => {
-  if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('Hanya admin.');
-  const args = ctx.message.text.split(' ').slice(1);
-  return adminHandler.deleteProductCmd(ctx, args[0]);
-});
-
-bot.command('listproducts', async (ctx) => {
-  if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('Hanya admin.');
-  return adminHandler.listProductsCmd(ctx);
-});
-
-bot.command('listorders', async (ctx) => {
-  if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('Hanya admin.');
-  return adminHandler.listOrdersCmd(ctx);
-});
-
-bot.command('confirmpayment', async (ctx) => {
-  if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('Hanya admin.');
-  const args = ctx.message.text.split(' ').slice(1);
-  if (!args[0]) return ctx.reply('Gunakan: /confirmpayment ORD-...');
-  return adminHandler.confirmPayment(ctx, args[0]);
-});
-
-bot.command('setresi', async (ctx) => {
-  if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('Hanya admin.');
-  const args = ctx.message.text.split(' ').slice(1);
-  return adminHandler.setResi(ctx, args);
-});
-
-bot.command('setstatus', async (ctx) => {
-  if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('Hanya admin.');
-  const args = ctx.message.text.split(' ').slice(1);
-  return adminHandler.setStatus(ctx, args);
-});
-
-bot.command('setgreeting', async (ctx) => {
-  if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('Hanya admin.');
-  const args = ctx.message.text.split(' ').slice(1);
-  return adminHandler.setGreeting(ctx, args);
-});
-
-// handle photo/document uploads
-bot.on(['photo', 'document'], async (ctx) => {
-  try { await uploadHandler.handleUpload(ctx); } catch (e) { console.error(e); ctx.reply('Error saat upload.'); }
-});
-
-// callback queries
-bot.on('callback_query', async (ctx) => {
-  const data = ctx.callbackQuery.data || '';
-  // admin inline approval
-  if (data.startsWith('admin_')) {
-    const parts = data.split('|');
-    const action = parts[0]; // admin_approve or admin_reject
-    const orderId = parts[1];
-    if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.answerCbQuery('Hanya admin');
-    if (action === 'admin_approve') {
-      await require('../services/orderService').updateOrder(orderId, { status: 'paid' });
-      try { await ctx.editMessageReplyMarkup(); } catch(e){}
-      await ctx.reply(`Order ${orderId} disetujui.`);
-      const ord = await require('../services/orderService').getOrder(orderId);
-      if (ord && ord.userId) {
-        try { await ctx.telegram.sendMessage(Number(ord.userId), `📣 Order ${orderId} telah dikonfirmasi oleh admin. Status: paid`); } catch(e){}
-      }
-      return ctx.answerCbQuery('Diapprove');
-    }
-    if (action === 'admin_reject') {
-      await require('../services/orderService').updateOrder(orderId, { status: 'payment_rejected' });
-      try { await ctx.editMessageReplyMarkup(); } catch(e){}
-      await ctx.reply(`Order ${orderId} ditolak.`);
-      const ord = await require('../services/orderService').getOrder(orderId);
-      if (ord && ord.userId) {
-        try { await ctx.telegram.sendMessage(Number(ord.userId), `⚠️ Order ${orderId} pembayaran ditolak oleh admin.`); } catch(e){}
-      }
-      return ctx.answerCbQuery('Ditolak');
-    }
+// /start command — tampilkan menu utama
+bot.start(async (ctx) => {
+  try {
+    await userHandler.start(ctx, isAdmin(ctx));
+  } catch (err) {
+    console.error('❌ Error in /start:', err);
   }
-
-  if (data === 'VIEW_PRODUCTS') return userHandler.viewProducts(ctx);
-  if (data === 'TRACK_ORDER') return userHandler.trackingStart(ctx);
-  if (data === 'ADMIN_PANEL') return adminHandler.adminPanel(ctx);
-  if (data.startsWith('kb_')) return userHandler.buyCommand(ctx, data.slice(3));
-  return ctx.answerCbQuery();
 });
 
-// text fallback -> FSM
-bot.on('text', async (ctx) => {
-  const handled = await fsmHandler.handleTextState(ctx, ctx.message.text);
-  if (handled) return;
-  const m = ctx.message.text.match(/\/kb_(\S+)/);
-  if (m) return userHandler.buyCommand(ctx, m[1]);
-  await ctx.reply('Perintah tidak dikenal. Ketik /start');
+// tombol utama user
+bot.action('VIEW_PRODUCTS', async (ctx) => {
+  try {
+    await userHandler.viewProducts(ctx);
+  } catch (err) {
+    console.error('❌ VIEW_PRODUCTS error:', err);
+  }
+});
+
+bot.action(/^VIEW_DETAIL_/, async (ctx) => {
+  try {
+    await userHandler.viewProductDetail(ctx);
+  } catch (err) {
+    console.error('❌ VIEW_DETAIL error:', err);
+  }
+});
+
+bot.action(/^OPEN_LINK_/, async (ctx) => {
+  try {
+    await userHandler.openRandomLink(ctx);
+  } catch (err) {
+    console.error('❌ OPEN_LINK error:', err);
+  }
+});
+
+bot.action('BUY_PRODUCT', async (ctx) => {
+  try {
+    await userHandler.buyProduct(ctx);
+  } catch (err) {
+    console.error('❌ BUY_PRODUCT error:', err);
+  }
+});
+
+bot.action('TRACK_ORDER', async (ctx) => {
+  try {
+    await userHandler.trackOrder(ctx);
+  } catch (err) {
+    console.error('❌ TRACK_ORDER error:', err);
+  }
+});
+
+// command manual tracking
+bot.command('tracking', async (ctx) => {
+  try {
+    await userHandler.trackOrder(ctx);
+  } catch (err) {
+    console.error('❌ /tracking error:', err);
+  }
+});
+
+/* ===================================
+   🛠 ADMIN PANEL & ACTIONS
+=================================== */
+
+// Tombol "Admin Panel" dari menu utama
+bot.action('ADMIN_PANEL', async (ctx) => {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Kamu bukan admin!');
+  try {
+    await adminHandler.showAdminMenu(ctx);
+  } catch (err) {
+    console.error('❌ ADMIN_PANEL error:', err);
+  }
+});
+
+// Command manual: /admin
+bot.command('admin', async (ctx) => {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Kamu bukan admin!');
+  try {
+    await adminHandler.showAdminMenu(ctx);
+  } catch (err) {
+    console.error('❌ /admin error:', err);
+  }
+});
+
+// Tombol-tombol di panel admin
+bot.action('ADMIN_ADD_PRODUCT', (ctx) => adminHandler.addProduct(ctx));
+bot.action('ADMIN_DELETE_PRODUCT', (ctx) => adminHandler.deleteProduct(ctx));
+bot.action('ADMIN_LIST_ORDERS', (ctx) => adminHandler.listOrders(ctx));
+bot.action('ADMIN_CONFIRM_PAYMENT', (ctx) => adminHandler.confirmPayment(ctx));
+bot.action('ADMIN_SET_RESI', (ctx) => adminHandler.setResi(ctx));
+bot.action('ADMIN_SET_STATUS', (ctx) => adminHandler.setStatus(ctx));
+bot.action('ADMIN_SET_GREETING', (ctx) => adminHandler.setGreeting(ctx));
+
+/* ===================================
+   🧾 UPLOAD & FSM INPUT HANDLER
+=================================== */
+bot.on('photo', (ctx) => {
+  try {
+    uploadHandler.handleUpload(ctx);
+  } catch (err) {
+    console.error('❌ Upload error:', err);
+  }
+});
+
+bot.on('text', (ctx) => {
+  try {
+    fsmHandler.handleState(ctx);
+  } catch (err) {
+    console.error('❌ FSM error:', err);
+  }
+});
+
+/* ===================================
+   ⚠️ GLOBAL ERROR HANDLER
+=================================== */
+
+bot.catch((err, ctx) => {
+  console.error('❌ Unhandled bot error:', err);
 });
 
 module.exports = bot;

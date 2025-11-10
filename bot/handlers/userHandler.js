@@ -1,51 +1,104 @@
-const productService = require('../../services/productService');
-const orderService = require('../../services/orderService');
 const settingsService = require('../../services/settingsService');
-const { client } = require('../../db/database');
 const { mainMenu } = require('../keyboards');
+const { getClient } = require('../../db/database');
 
-async function start(ctx) {
-  const greeting = await settingsService.getSetting('greeting', `Selamat datang di toko kami!`);
-  const help = await settingsService.getSetting('help', 'Gunakan menu untuk berbelanja');
-  await ctx.reply(`${greeting}\n\n${help}`, mainMenu(false));
-}
+module.exports = {
+  async start(ctx, isAdmin = false) {
+    const greeting =
+      (await settingsService.getSetting('greeting')) ||
+      '👋 Selamat datang di toko kami!';
+    const help =
+      (await settingsService.getSetting('help')) ||
+      'Gunakan menu di bawah untuk melihat produk, membeli, atau melacak pesanan.';
 
-async function viewProducts(ctx) {
-  const products = await productService.listProducts();
-  if (!products.length) return ctx.reply('Belum ada produk.');
-  for (const p of products) {
-    await ctx.reply(`*${p.name}*\nHarga: ${p.price}\nStok: ${p.stock}\n${p.description}\n\nGunakan /kb_${p.id} untuk beli.`, { parse_mode: 'Markdown' });
-  }
-}
+    await ctx.reply(`${greeting}\n\n${help}`, mainMenu(isAdmin));
+  },
 
-async function buyCommand(ctx, id) {
-  const p = await productService.getProduct(id);
-  if (!p) return ctx.reply('Produk tidak ditemukan');
-  const orderId = `ORD-${Date.now()}`;
-  const items = [{ productId: p.id, name: p.name, qty: 1, price: p.price }];
-  await orderService.createOrder({ id: orderId, userId: ctx.from.id, items, total: p.price });
-  await ctx.reply(`Order dibuat: ${orderId}\nTotal: ${p.price}\nSilakan upload bukti pembayaran dengan mengirim foto dan tuliskan ID order pada caption (mis: ${orderId})`);
-  // notify admins
-  const adminIds = (process.env.ADMIN_IDS || '').split(',').filter(Boolean).map(x => Number(x));
-  const inline = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Approve', callback_data: `admin_approve|${orderId}` }, { text: 'Reject', callback_data: `admin_reject|${orderId}` }]
-      ]
+  // 📦 Daftar produk
+  async viewProducts(ctx) {
+    const client = getClient();
+    const ids = await client.sMembers('products');
+    if (!ids || ids.length === 0)
+      return ctx.reply('📭 Belum ada produk tersedia.');
+
+    const buttons = [];
+    for (const id of ids) {
+      const data = await client.hGetAll(`product:${id}`);
+      if (!data || !data.name) continue;
+      buttons.push([{ text: `🛍️ ${data.name}`, callback_data: `VIEW_DETAIL_${id}` }]);
     }
-  };
-  for (const aid of adminIds) {
-    try {
-      await ctx.telegram.sendMessage(aid, `📥 Order baru: ${orderId}\nUser: ${ctx.from.username || ctx.from.first_name || ctx.from.id}\nTotal: ${p.price}`, inline);
-    } catch (e) {
-      console.error('Notify admin error', e);
+
+    await ctx.reply('🛒 Pilih produk untuk melihat detail:', {
+      reply_markup: { inline_keyboard: buttons },
+    });
+  },
+
+  // 📖 Detail produk
+  async viewProductDetail(ctx) {
+    const client = getClient();
+    const id = ctx.callbackQuery.data.replace('VIEW_DETAIL_', '');
+    const data = await client.hGetAll(`product:${id}`);
+
+    if (!data || !data.id)
+      return ctx.editMessageText('❌ Produk tidak ditemukan.');
+
+    const randomLink = await client.sRandMember(`product_links:${id}`);
+
+    const message = `🛍️ *${data.name}*\n💰 Harga: Rp${Number(
+      data.price || 0
+    ).toLocaleString('id-ID')}\n📦 Stok: ${
+      data.stock
+    }\n📝 ${data.description || '-'}`;
+
+    const buttons = [
+      [
+        {
+          text: '🌐 Buka Link Acak',
+          callback_data: `OPEN_LINK_${id}`,
+        },
+      ],
+      [{ text: '⬅️ Kembali', callback_data: 'VIEW_PRODUCTS' }],
+    ];
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: buttons },
+    });
+
+    // Simpan link awal ke session (agar tahu yang terakhir dipakai)
+    ctx.session = ctx.session || {};
+    ctx.session.lastProductLink = randomLink || null;
+  },
+
+  // 🎲 Klik tombol "Buka Link Acak" → langsung ganti link acak baru
+  async openRandomLink(ctx) {
+    const client = getClient();
+    const id = ctx.callbackQuery.data.replace('OPEN_LINK_', '');
+    const randomLink = await client.sRandMember(`product_links:${id}`);
+
+    if (!randomLink) {
+      return ctx.answerCbQuery('❌ Tidak ada link untuk produk ini.');
     }
-  }
-}
 
-async function trackingStart(ctx) {
-  await ctx.reply('Silakan masukkan nomor order untuk tracking:');
-  await client.hSet(`user:${ctx.from.id}`, 'state', 'AWAITING_TRACK_ID');
-}
+    // Ambil ulang data produk
+    const data = await client.hGetAll(`product:${id}`);
+    const message = `🛍️ *${data.name}*\n💰 Harga: Rp${Number(
+      data.price || 0
+    ).toLocaleString('id-ID')}\n📦 Stok: ${
+      data.stock
+    }\n📝 ${data.description || '-'}`;
 
-module.exports = { start, viewProducts, buyCommand, trackingStart };
+    // ⬇️ Tombol tetap sama, tapi link berubah setiap klik
+    const buttons = [
+      [{ text: '🌐 Buka Link Acak', url: randomLink, callback_data: `OPEN_LINK_${id}` }],
+      [{ text: '⬅️ Kembali', callback_data: 'VIEW_PRODUCTS' }],
+    ];
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: buttons },
+    });
+
+    ctx.answerCbQuery('🎲 Link diacak ulang!');
+  },
+};
