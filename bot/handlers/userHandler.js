@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+// bot/handlers/userHandler.js
+>>>>>>> 26ad41e6d8332003f58e3e5666a639aa91fd4b08
 const settingsService = require('../../services/settingsService');
 const { mainMenu } = require('../keyboards');
 const { getClient } = require('../../db/database');
@@ -14,6 +18,7 @@ module.exports = {
     await ctx.reply(`${greeting}\n\n${help}`, mainMenu(isAdmin));
   },
 
+<<<<<<< HEAD
   // 📦 Daftar produk
   async viewProducts(ctx) {
     const client = getClient();
@@ -100,5 +105,27 @@ module.exports = {
     });
 
     ctx.answerCbQuery('🎲 Link diacak ulang!');
+=======
+  async viewProducts(ctx) {
+    // ambil list produk dari Redis
+    const client = require('../../db/database').getClient();
+    const products = await client.hGetAll('products');
+    if (!products || Object.keys(products).length === 0)
+      return ctx.reply('Belum ada produk.');
+
+    for (const [id, raw] of Object.entries(products)) {
+      let product;
+      try {
+        product = JSON.parse(raw);
+      } catch {
+        product = { name: id, price: '-', desc: '-' };
+      }
+
+      await ctx.reply(
+        `🛍️ *${product.name || 'Produk'}*\n💰 Harga: ${product.price || '-'}\n📦 ${product.desc || '-'}`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+>>>>>>> 26ad41e6d8332003f58e3e5666a639aa91fd4b08
   },
 };

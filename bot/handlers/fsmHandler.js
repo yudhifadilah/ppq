@@ -1,4 +1,5 @@
 // bot/handlers/fsmHandler.js
+<<<<<<< HEAD
 const productService = require('../../services/productService');
 const orderService = require('../../services/orderService');
 const settingsService = require('../../services/settingsService');
@@ -139,3 +140,14 @@ async function handleState(ctx) {
 }
 
 module.exports = { handleState };
+=======
+const { getClient } = require('../../db/database');
+
+module.exports = {
+  async handleState(ctx) {
+    const client = getClient();
+    if (!client) return ctx.reply('⚠️ Database belum siap, coba lagi.');
+    // lanjutkan FSM seperti biasa
+  },
+};
+>>>>>>> 26ad41e6d8332003f58e3e5666a639aa91fd4b08
