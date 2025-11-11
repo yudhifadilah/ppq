@@ -15,21 +15,26 @@ async function init() {
   await connect();
   console.log('🚀 Database connected');
 
-  if (process.env.WEBHOOK_URL) {
-    const webhookPath = '/telegram/webhook';
-    const webhookFull = `${process.env.WEBHOOK_URL}${webhookPath}`;
+  const webhookPath = '/telegram/webhook';
+  const webhookFull = `${process.env.WEBHOOK_URL}${webhookPath}`;
 
-    app.use(bot.webhookCallback(webhookPath));
+  if (process.env.WEBHOOK_URL) {
+    // 🔧 Hapus polling jika webhook aktif
+    await bot.telegram.deleteWebhook().catch(() => {});
     await bot.telegram.setWebhook(webhookFull);
 
-    console.log('✅ Webhook registered to Telegram:', webhookFull);
+    app.use(bot.webhookCallback(webhookPath));
+
+    console.log(`✅ Webhook registered: ${webhookFull}`);
   } else {
+    // 🔄 Mode development: polling
+    await bot.telegram.deleteWebhook().catch(() => {});
     await bot.launch();
-    console.log('🤖 Bot polling launched');
+    console.log('🤖 Bot polling launched (development mode)');
   }
 
   app.listen(PORT, HOST, () => {
-    console.log(`🌐 Server listening on http://${HOST}:${PORT}`);
+    console.log(`🌐 Server running on http://${HOST}:${PORT}`);
   });
 }
 
