@@ -4,7 +4,7 @@ const orderService = require('../../services/orderService');
 const settingsService = require('../../services/settingsService');
 const { Markup } = require('telegraf');
 
-<<<<<<< HEAD
+
 /* ===========================
    🧭 Menu utama admin
 =========================== */
