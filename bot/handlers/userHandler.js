@@ -14,7 +14,6 @@ module.exports = {
     await ctx.reply(`${greeting}\n\n${help}`, mainMenu(isAdmin));
   },
 
-<<<<<<< HEAD
   // 📦 Daftar produk
   async viewProducts(ctx) {
     const client = getClient();
@@ -101,7 +100,6 @@ module.exports = {
     });
 
     ctx.answerCbQuery('🎲 Link diacak ulang!');
-=======
   async viewProducts(ctx) {
     // ambil list produk dari Redis
     const client = require('../../db/database').getClient();
@@ -122,6 +120,5 @@ module.exports = {
         { parse_mode: 'Markdown' }
       );
     }
->>>>>>> 26ad41e6d8332003f58e3e5666a639aa91fd4b08
   },
 };
