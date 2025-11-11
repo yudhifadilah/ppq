@@ -1,3 +1,4 @@
+// bot/handlers/userHandler.js
 const settingsService = require('../../services/settingsService');
 const { mainMenu } = require('../keyboards');
 const { getClient } = require('../../db/database');
@@ -51,12 +52,7 @@ module.exports = {
     }\n📝 ${data.description || '-'}`;
 
     const buttons = [
-      [
-        {
-          text: '🌐 Buka Link Acak',
-          callback_data: `OPEN_LINK_${id}`,
-        },
-      ],
+      [{ text: '🌐 Buka Link Acak', callback_data: `OPEN_LINK_${id}` }],
       [{ text: '⬅️ Kembali', callback_data: 'VIEW_PRODUCTS' }],
     ];
 
