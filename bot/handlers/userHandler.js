@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-// bot/handlers/userHandler.js
->>>>>>> 26ad41e6d8332003f58e3e5666a639aa91fd4b08
 const settingsService = require('../../services/settingsService');
 const { mainMenu } = require('../keyboards');
 const { getClient } = require('../../db/database');
