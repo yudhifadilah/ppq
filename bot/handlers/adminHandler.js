@@ -78,7 +78,7 @@ module.exports = {
   addProduct,
   deleteProduct,
   listOrders,
-=======
+
 /* ======================
    📋 Inline Admin Panel
    ====================== */
@@ -195,7 +195,6 @@ module.exports = {
   deleteProductCmd,
   listProductsCmd,
   listOrdersCmd,
->>>>>>> 26ad41e6d8332003f58e3e5666a639aa91fd4b08
   confirmPayment,
   setResi,
   setStatus,
