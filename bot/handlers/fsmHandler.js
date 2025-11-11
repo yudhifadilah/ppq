@@ -139,7 +139,6 @@ async function handleState(ctx) {
 }
 
 module.exports = { handleState };
-=======
 const { getClient } = require('../../db/database');
 
 module.exports = {
@@ -149,4 +148,3 @@ module.exports = {
     // lanjutkan FSM seperti biasa
   },
 };
->>>>>>> 26ad41e6d8332003f58e3e5666a639aa91fd4b08
