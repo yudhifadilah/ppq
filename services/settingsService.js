@@ -49,6 +49,7 @@ async function setSetting(key, value) {
   console.log(`✅ Setting '${key}' disimpan: ${value}`);
 }
 
+// ✅ Ekspor fungsi
 module.exports = {
   getSetting,
   setSetting,
