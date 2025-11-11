@@ -1,5 +1,5 @@
 // services/settingsService.js
-<<<<<<< HEAD
+
 const { getClient } = require('../db/database');
 
 const SETTINGS_KEY = 'bot_settings';
@@ -34,7 +34,7 @@ async function getSetting(key) {
 
   const val = await client.hGet(SETTINGS_KEY, key);
   return val || null;
-=======
+
 const { getClient } = require('../db/database'); // pastikan ambil client dari modul database.js
 
 const SETTINGS_KEY = 'bot_settings';
@@ -47,7 +47,7 @@ async function getSetting(key) {
   }
   const val = await client.hGet(SETTINGS_KEY, key);
   return val;
->>>>>>> 26ad41e6d8332003f58e3e5666a639aa91fd4b08
+
 }
 
 /**
@@ -59,15 +59,15 @@ async function setSetting(key, value) {
     console.error('❌ Redis client belum terhubung!');
     return;
   }
-<<<<<<< HEAD
+
 
   await ensureSettingsHash(client);
 
   await client.hSet(SETTINGS_KEY, key, String(value));
   console.log(`✅ Setting '${key}' disimpan: ${value}`);
-=======
+
   await client.hSet(SETTINGS_KEY, key, value);
->>>>>>> 26ad41e6d8332003f58e3e5666a639aa91fd4b08
+
 }
 
 module.exports = {
