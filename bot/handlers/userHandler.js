@@ -65,7 +65,6 @@ module.exports = {
       reply_markup: { inline_keyboard: buttons },
     });
 
-    // Simpan link awal ke session (agar tahu yang terakhir dipakai)
     ctx.session = ctx.session || {};
     ctx.session.lastProductLink = randomLink || null;
   },
@@ -88,7 +87,6 @@ module.exports = {
       data.stock
     }\n📝 ${data.description || '-'}`;
 
-    // ⬇️ Tombol tetap sama, tapi link berubah setiap klik
     const buttons = [
       [{ text: '🌐 Buka Link Acak', url: randomLink, callback_data: `OPEN_LINK_${id}` }],
       [{ text: '⬅️ Kembali', callback_data: 'VIEW_PRODUCTS' }],
@@ -100,25 +98,5 @@ module.exports = {
     });
 
     ctx.answerCbQuery('🎲 Link diacak ulang!');
-  async viewProducts(ctx) {
-    // ambil list produk dari Redis
-    const client = require('../../db/database').getClient();
-    const products = await client.hGetAll('products');
-    if (!products || Object.keys(products).length === 0)
-      return ctx.reply('Belum ada produk.');
-
-    for (const [id, raw] of Object.entries(products)) {
-      let product;
-      try {
-        product = JSON.parse(raw);
-      } catch {
-        product = { name: id, price: '-', desc: '-' };
-      }
-
-      await ctx.reply(
-        `🛍️ *${product.name || 'Produk'}*\n💰 Harga: ${product.price || '-'}\n📦 ${product.desc || '-'}`,
-        { parse_mode: 'Markdown' }
-      );
-    }
   },
 };
