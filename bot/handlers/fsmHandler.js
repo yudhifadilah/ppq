@@ -1,5 +1,4 @@
 // bot/handlers/fsmHandler.js
-<<<<<<< HEAD
 const productService = require('../../services/productService');
 const orderService = require('../../services/orderService');
 const settingsService = require('../../services/settingsService');
