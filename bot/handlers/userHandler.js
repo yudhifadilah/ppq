@@ -22,7 +22,11 @@ module.exports = {
     await ctx.reply(`${greeting}\n\n${help}`, mainMenu(isAdmin));
   },
 
+<<<<<<< HEAD
   // 📦 Daftar Produk
+=======
+  // 📦 Daftar produk
+>>>>>>> 9083b3fe9e7d7a71f9c9bfcfef77455e847d8237
   async viewProducts(ctx) {
     const client = getClient();
     const ids = await client.sMembers('products');
@@ -60,7 +64,10 @@ module.exports = {
 
     const buttons = [
       [{ text: '🌐 Buka Link Acak', callback_data: `OPEN_LINK_${id}` }],
+<<<<<<< HEAD
       [{ text: '🛒 Beli Produk Ini', callback_data: `BUY_PRODUCT_${id}` }],
+=======
+>>>>>>> 9083b3fe9e7d7a71f9c9bfcfef77455e847d8237
       [{ text: '⬅️ Kembali', callback_data: 'VIEW_PRODUCTS' }],
     ];
 
@@ -97,6 +104,7 @@ module.exports = {
     });
 
     ctx.answerCbQuery('🎲 Link diacak ulang!');
+<<<<<<< HEAD
   },
 
   // 🛒 Mulai Order Step 1 (Klik Beli Produk)
