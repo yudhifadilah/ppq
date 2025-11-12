@@ -206,5 +206,7 @@ module.exports = {
         { parse_mode: 'Markdown' }
       );
     }
+=======
+>>>>>>> 9083b3fe9e7d7a71f9c9bfcfef77455e847d8237
   },
 };

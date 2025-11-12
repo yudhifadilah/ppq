@@ -193,3 +193,15 @@ async function handleState(ctx) {
 }
 
 module.exports = { handleState };
+<<<<<<< HEAD
+=======
+const { getClient } = require('../../db/database');
+
+module.exports = {
+  async handleState(ctx) {
+    const client = getClient();
+    if (!client) return ctx.reply('⚠️ Database belum siap, coba lagi.');
+    // lanjutkan FSM seperti biasa
+  },
+};
+>>>>>>> 9083b3fe9e7d7a71f9c9bfcfef77455e847d8237

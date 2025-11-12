@@ -55,6 +55,7 @@ async function listOrders(ctx) {
     if (!orders.length) return ctx.reply('📭 Belum ada order.');
 
     for (const o of orders) {
+<<<<<<< HEAD
       const total =
         o.total && !isNaN(Number(o.total))
           ? Number(o.total)
@@ -66,6 +67,10 @@ async function listOrders(ctx) {
         `📦 *${o.id}*\n👤 User: ${o.userId}\n💰 Total: Rp${total.toLocaleString(
           'id-ID'
         )}\n📍 Status: *${o.status || '-'}*`
+=======
+      await ctx.replyWithMarkdown(
+        `📦 *${o.id}*\n👤 User: ${o.userId}\n💰 Total: ${o.total}\n📍 Status: ${o.status}`
+>>>>>>> 9083b3fe9e7d7a71f9c9bfcfef77455e847d8237
       );
     }
   } catch (err) {
