@@ -1,38 +1,103 @@
-const { client } = require('../db/database');
+// services/orderService.js
+const { getClient } = require('../db/database');
+
 const ORDER_SET = 'orders';
 
-function orderKey(id) { return `order:${id}`; }
+function orderKey(id) {
+  return `order:${id}`;
+}
 
-async function createOrder({ id, userId, items, total, status = 'pending', phone = '', address = '' }) {
+/**
+ * 🧾 Buat order baru
+ */
+async function createOrder({
+  id,
+  userId,
+  productId,
+  productName,
+  price,
+  name,
+  address,
+  phone,
+  status = 'pending',
+  date = new Date().toISOString(),
+}) {
+  const client = getClient();
+  if (!client) throw new Error('❌ Redis client belum terhubung!');
+
   const key = orderKey(id);
   await client.hSet(key, {
-    id, userId: String(userId), items: JSON.stringify(items), total: String(total), status, phone, address, createdAt: String(Date.now())
+    id,
+    userId: String(userId),
+    productId: String(productId),
+    productName: productName || '',
+    price: String(price || 0),
+    name: name || '',
+    address: address || '',
+    phone: phone || '',
+    status,
+    date,
   });
+
   await client.sAdd(ORDER_SET, id);
   return id;
 }
 
+/**
+ * 📄 Ambil detail order
+ */
 async function getOrder(id) {
-  const o = await client.hGetAll(orderKey(id));
-  if (!o || !o.id) return null;
-  try { o.items = JSON.parse(o.items); } catch (e) { o.items = []; }
-  o.total = Number(o.total);
-  return o;
+  const client = getClient();
+  if (!client) throw new Error('❌ Redis client belum terhubung!');
+
+  const data = await client.hGetAll(orderKey(id));
+  return data && data.id ? data : null;
 }
 
+/**
+ * 🔄 Update order
+ */
 async function updateOrder(id, patch) {
-  const key = orderKey(id);
+  const client = getClient();
+  if (!client) throw new Error('❌ Redis client belum terhubung!');
+
   const flat = {};
-  for (const k in patch) {
-    flat[k] = (typeof patch[k] === 'object') ? JSON.stringify(patch[k]) : String(patch[k]);
+  for (const key in patch) {
+    flat[key] =
+      typeof patch[key] === 'object' ? JSON.stringify(patch[key]) : String(patch[key]);
   }
-  await client.hSet(key, flat);
+
+  await client.hSet(orderKey(id), flat);
 }
 
+/**
+ * 📋 Daftar semua order
+ */
 async function listOrders() {
+  const client = getClient();
+  if (!client) throw new Error('❌ Redis client belum terhubung!');
+
   const ids = await client.sMembers(ORDER_SET);
-  const proms = ids.map(id => getOrder(id));
-  return Promise.all(proms);
+  const orders = [];
+  for (const id of ids) {
+    const data = await getOrder(id);
+    if (data) orders.push(data);
+  }
+  return orders;
 }
 
-module.exports = { createOrder, getOrder, updateOrder, listOrders };
+/**
+ * 👤 Daftar order berdasarkan userId
+ */
+async function listOrdersByUser(userId) {
+  const all = await listOrders();
+  return all.filter((o) => String(o.userId) === String(userId));
+}
+
+module.exports = {
+  createOrder,
+  getOrder,
+  updateOrder,
+  listOrders,
+  listOrdersByUser,
+};
